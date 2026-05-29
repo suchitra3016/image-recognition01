@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Rekognition Image Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f1f5;
+        }
+
+        .upload-section.dragover {
+            border-color: #28a745;
+            background: #e8f5e9;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+
+        .custom-file-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .selected-file {
+            margin-top: 15px;
+            font-size: 1em;
+            color: #333;
+        }
+
+        .analyze-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .analyze-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .analyze-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .images-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .image-container {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .image-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .image-label {
+            background: #667eea;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .summary-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .summary-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .summary-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .summary-item h3 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .summary-item ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .summary-item li {
+            padding: 5px 0;
+            color: #555;
+        }
+
+        .icon {
+            font-size: 1.5em;
+        }
+
+        .labels-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .labels-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+        }
+
+        .labels-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .labels-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .confidence-bar {
+            background: #e0e0e0;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .confidence-fill {
+            background: linear-gradient(90deg, #28a745, #20c997);
+            height: 100%;
+            transition: width 0.5s ease;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            display: none;
+        }
+
+        .new-analysis-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .new-analysis-btn:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 AWS Rekognition Image Analyzer</h1>
+            <p>Upload an image to detect objects, people, and scenes using AI</p>
+        </div>
+
+        <div class="content">
+            <div class="upload-section" id="uploadSection">
+                <div class="file-input-wrapper">
+                    <label for="imageInput" class="custom-file-button">
+                        📁 Choose Image File
+                    </label>
+                    <input type="file" id="imageInput" accept="image/*">
+                </div>
+                <div class="selected-file" id="selectedFile"></div>
+                <button class="analyze-btn" id="analyzeBtn">🚀 Analyze Image</button>
+                <p style="margin-top: 20px; color: #666;">Or drag and drop an image here</p>
+            </div>
+
+            <div class="error" id="errorMessage"></div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <h3>Analyzing your image...</h3>
+                <p>This may take a few seconds</p>
+            </div>
+
+            <div class="results" id="results">
+                <div class="images-grid">
+                    <div class="image-container">
+                        <div class="image-label">Original Image</div>
+                        <img id="originalImage" src="" alt="Original">
+                    </div>
+                    <div class="image-container">
+                        <div class="image-label">Detected Objects (Annotated)</div>
+                        <img id="annotatedImage" src="" alt="Annotated">
+                    </div>
+                </div>
+
+                <div class="summary-section">
+                    <h2>📊 Analysis Summary</h2>
+                    <div id="summaryContent"></div>
+                </div>
+
+                <div class="summary-section">
+                    <h2>🏷️ All Detected Labels</h2>
+                    <table class="labels-table">
+                        <thead>
+                            <tr>
+                                <th>Label</th>
+                                <th>Confidence</th>
+                                <th>Instances</th>
+                            </tr>
+                        </thead>
+                        <tbody id="labelsTable"></tbody>
+                    </table>
+                </div>
+
+                <div style="text-align: center;">
+                    <button class="new-analysis-btn" onclick="resetAnalysis()">
+                        🔄 Analyze Another Image
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const selectedFile = document.getElementById('selectedFile');
+        const uploadSection = document.getElementById('uploadSection');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // File selection
+        imageInput.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                selectedFile.textContent = `✅ Selected: ${this.files[0].name}`;
+                analyzeBtn.style.display = 'inline-block';
+                errorMessage.style.display = 'none';
+            }
+        });
+
+        // Drag and drop
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                imageInput.files = files;
+                selectedFile.textContent = `✅ Selected: ${files[0].name}`;
+                analyzeBtn.style.display = 'inline-block';
+            }
+        });
+
+        // Analyze button
+        analyzeBtn.addEventListener('click', async function() {
+            const file = imageInput.files[0];
+            if (!file) {
+                showError('Please select an image file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            // Show loading
+            uploadSection.style.display = 'none';
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            errorMessage.style.display = 'none';
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                // Display results
+                displayResults(data);
+
+            } catch (error) {
+                showError('An error occurred: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+
+        function displayResults(data) {
+            // Show images
+            document.getElementById('originalImage').src = data.original_image;
+            document.getElementById('annotatedImage').src = data.annotated_image;
+
+            // Display summary
+            const summaryContent = document.getElementById('summaryContent');
+            summaryContent.innerHTML = generateSummaryHTML(data.summary);
+
+            // Display labels table
+            const labelsTable = document.getElementById('labelsTable');
+            labelsTable.innerHTML = data.labels.map(label => `
+                <tr>
+                    <td><strong>${label.Name}</strong></td>
+                    <td>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${label.Confidence}%"></div>
+                        </div>
+                        <small>${label.Confidence.toFixed(1)}%</small>
+                    </td>
+                    <td>${label.Instances ? label.Instances.length : 0}</td>
+                </tr>
+            `).join('');
+
+            results.style.display = 'block';
+        }
+
+        function generateSummaryHTML(summary) {
+            let html = '';
+
+            // People section
+            if (summary.people_count > 0) {
+                html += `
+                    <div class="summary-item">
+                        <h3><span class="icon">👥</span> People Detected</h3>
+                        <ul>
+                            <li><strong>Total:</strong> ${summary.people_count} ${summary.people_count === 1 ? 'person' : 'people'}</li>
+                            ${summary.women_count > 0 ? `<li>Women: ${summary.women_count}</li>` : ''}
+                            ${summary.men_count > 0 ? `<li>Men: ${summary.men_count}</li>` : ''}
+                            ${summary.children_count > 0 ? `<li>Children: ${summary.children_count}</li>` : ''}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // Clothing section
+            if (Object.keys(summary.clothing_items).length > 0) {
+                html += `
+                    <div class="summary-item">
+                        <h3><span class="icon">👕</span> Clothing & Accessories</h3>
+                        <ul>
+                            ${Object.entries(summary.clothing_items).map(([item, count]) => 
+                                `<li>${count} ${item.toLowerCase()}${count > 1 ? 's' : ''}</li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // Vehicles section
+            if (summary.vehicles.length > 0) {
+                html += `
+                    <div class="summary-item">
+                        <h3><span class="icon">🚗</span> Vehicles</h3>
+                        <ul>
+                            ${summary.vehicles.map(vehicle => `<li>${vehicle}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // Other objects section
+            if (Object.keys(summary.other_objects).length > 0) {
+                html += `
+                    <div class="summary-item">
+                        <h3><span class="icon">🔍</span> Other Objects & Scenes</h3>
+                        <ul>
+                            ${Object.entries(summary.other_objects).map(([obj, count]) => 
+                                `<li>${obj} ${count !== 'detected' ? `(${count} found)` : ''}</li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            return html || '<p>No specific objects detected</p>';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = '❌ ' + message;
+            errorMessage.style.display = 'block';
+            uploadSection.style.display = 'block';
+        }
+
+        function resetAnalysis() {
+            uploadSection.style.display = 'block';
+            results.style.display = 'none';
+            selectedFile.textContent = '';
+            imageInput.value = '';
+            analyzeBtn.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
